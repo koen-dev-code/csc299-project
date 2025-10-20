@@ -1,0 +1,5 @@
+# This file lists the Python packages required by the PKMS-CLI project.
+# You can install all dependencies by running:
+# pip install -r requirements.txt
+neo4j
+python-dotenv
