@@ -1,6 +1,6 @@
 # graph_pkm/main.py
 
-from Ptests.database import GraphDatabase
+from V1database import GraphDatabase
 
 def main():
     """
