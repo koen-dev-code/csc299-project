@@ -4,4 +4,4 @@
 intitial test connecting to NEO4J
 
 ## v0.2
-try working with chat completions API and adding and removing tasks 
+try and adding and removing tasks 
