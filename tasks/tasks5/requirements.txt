@@ -1,0 +1,2 @@
+# No external runtime dependencies required for MVP
+# Add any runtime dependencies here, one per line
