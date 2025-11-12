@@ -65,6 +65,7 @@ jobs:
               PYTHONPATH=tasks/tasks5/src python -m unittest discover -v
 
           - name: Upload CI debug artifact
+            if: ${{ always() }}
             uses: actions/upload-artifact@v4
             with:
               name: ci-debug
