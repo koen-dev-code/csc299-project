@@ -1,0 +1,48 @@
+name: CI Debug Artifact
+
+on:
+  push:
+    branches: [ '001-cli-task-manager' ]
+
+jobs:
+  debug-only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Collect debug info and run discovery
+        run: |
+          exec > debug_ci.txt 2>&1
+          echo "--- PWD ---"
+          pwd
+          echo "--- Python version ---"
+          python -V || true
+          echo "--- PYTHONPATH (env) ---"
+          echo "$PYTHONPATH"
+          echo "--- Environment vars (short) ---"
+          env | sort
+          echo "--- Listing repo root ---"
+          ls -la
+          echo "--- Listing tasks/tasks5 ---"
+          ls -la tasks/tasks5 || true
+          echo "--- Find test files (maxdepth 6) ---"
+          find . -maxdepth 6 -name 'test*.py' -print || true
+          echo "--- Discover tests in repo-root tests/ ---"
+          PYTHONPATH=tasks/tasks5/src python -m unittest discover -s tests -p "test*.py" -v || true
+          echo "--- Discover tests in tasks/tasks5/tests/ ---"
+          PYTHONPATH=tasks/tasks5/src python -m unittest discover -s tasks/tasks5/tests -p "test*.py" -v || true
+          echo "--- Run unit tests (explicit) ---"
+          PYTHONPATH=tasks/tasks5/src python -m unittest discover -s tasks/tasks5/tests -p "test*.py" -v || true
+
+      - name: Upload CI debug artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-debug
+          path: debug_ci.txt
