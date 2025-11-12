@@ -6,6 +6,7 @@ import sys
 from typing import Optional
 
 from .store import add_task, delete_task, list_tasks
+import os
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -24,9 +25,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
+    # allow runtime override of data path via environment for CI/tests
+    data_path = os.environ.get('TASKCLI_DATA')
+
     if args.cmd == 'add':
         try:
-            tid = add_task(args.title, args.description)
+            tid = add_task(args.title, args.description, data_path=data_path)
             print(tid)
             print(f"Added task: {args.title}")
             return 0
@@ -34,7 +38,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(str(e), file=sys.stderr)
             return 1
     elif args.cmd == 'delete':
-        ok = delete_task(args.id)
+        ok = delete_task(args.id, data_path=data_path)
         if ok:
             print(f"Deleted task {args.id}")
             return 0
@@ -42,7 +46,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(f"Task not found: {args.id}", file=sys.stderr)
             return 2
     elif args.cmd == 'list':
-        tasks = list_tasks()
+        tasks = list_tasks(data_path=data_path)
         if not tasks:
             print('No tasks found.')
             return 0
