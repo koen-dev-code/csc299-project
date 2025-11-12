@@ -16,7 +16,13 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Optional
 
-DEFAULT_DATA_PATH = os.environ.get('TASKCLI_DATA') or os.path.join(os.path.expanduser('~'), '.taskcli_tasks.json')
+def _get_default_data_path() -> str:
+    """Return the default data path, checking TASKCLI_DATA at call time.
+
+    Computing this at call time avoids import-time caching so tests that set
+    the environment can control where data is written.
+    """
+    return os.environ.get('TASKCLI_DATA') or os.path.join(os.path.expanduser('~'), '.taskcli_tasks.json')
 
 
 def _read_data(path: str) -> Dict:
@@ -50,7 +56,7 @@ def _write_data_atomic(path: str, data: Dict) -> None:
 def add_task(title: str, description: Optional[str] = None, data_path: Optional[str] = None) -> str:
     if not title or not title.strip():
         raise ValueError('title must be non-empty')
-    path = data_path or DEFAULT_DATA_PATH
+    path = data_path or _get_default_data_path()
     data = _read_data(path)
     task_id = str(uuid.uuid4())
     task = {
@@ -66,7 +72,7 @@ def add_task(title: str, description: Optional[str] = None, data_path: Optional[
 
 
 def delete_task(task_id: str, data_path: Optional[str] = None) -> bool:
-    path = data_path or DEFAULT_DATA_PATH
+    path = data_path or _get_default_data_path()
     data = _read_data(path)
     tasks = data.get('tasks', [])
     new_tasks = [t for t in tasks if t.get('id') != task_id]
@@ -78,6 +84,6 @@ def delete_task(task_id: str, data_path: Optional[str] = None) -> bool:
 
 
 def list_tasks(data_path: Optional[str] = None) -> List[Dict]:
-    path = data_path or DEFAULT_DATA_PATH
+    path = data_path or _get_default_data_path()
     data = _read_data(path)
     return data.get('tasks', [])
