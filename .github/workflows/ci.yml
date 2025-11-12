@@ -8,65 +8,72 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: CI
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    on:
+      push:
+        branches: [ '**' ]
+      pull_request:
+        branches: [ '**' ]
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    jobs:
+      test:
+        runs-on: ubuntu-latest
 
-      - name: Install dependencies
-        run: |
-          cd tasks/tasks5
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        steps:
+          - name: Checkout repository
+            uses: actions/checkout@v4
 
-      - name: Run unit tests
-        run: |
-          cd tasks/tasks5
-          python -m unittest discover -v
+          - name: Set up Python
+            uses: actions/setup-python@v4
+            with:
+              python-version: '3.10'
 
-  coverage:
-    runs-on: ubuntu-latest
-    needs: test
+          - name: Install dependencies
+            run: |
+              python -m pip install --upgrade pip
+              if [ -f tasks/tasks5/requirements.txt ]; then python -m pip install -r tasks/tasks5/requirements.txt; fi
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+          - name: Run unit tests
+            run: |
+              # Run test discovery from repository root; ensure package source is on PYTHONPATH
+              PYTHONPATH=tasks/tasks5/src python -m unittest discover -v
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+      coverage:
+        runs-on: ubuntu-latest
+        needs: test
 
-      - name: Install coverage
-        run: |
-          cd tasks/tasks5
-          python -m pip install --upgrade pip
-          python -m pip install coverage
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        steps:
+          - name: Checkout repository
+            uses: actions/checkout@v4
 
-      - name: Run tests with coverage
-        run: |
-          cd tasks/tasks5
-          # Ensure src/ is on the import path so coverage can import local package
-          PYTHONPATH=./src coverage run -m unittest discover -v
-          coverage xml -i -o coverage.xml
-          coverage html -d coverage_html
+          - name: Set up Python
+            uses: actions/setup-python@v4
+            with:
+              python-version: '3.10'
 
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-xml
-          path: tasks/tasks5/coverage.xml
+          - name: Install coverage
+            run: |
+              python -m pip install --upgrade pip
+              python -m pip install coverage
+              if [ -f tasks/tasks5/requirements.txt ]; then python -m pip install -r tasks/tasks5/requirements.txt; fi
 
-      - name: (Optional) Upload to Codecov
-        if: env.CODECOV_TOKEN != ''
-        uses: codecov/codecov-action@v4
-        with:
-          files: tasks/tasks5/coverage.xml
-          token: ${{ env.CODECOV_TOKEN }}
+          - name: Run tests with coverage
+            run: |
+              # Run coverage from repository root; ensure package source is on PYTHONPATH
+              PYTHONPATH=tasks/tasks5/src coverage run -m unittest discover -v
+              coverage xml -i -o coverage.xml
+              coverage html -d coverage_html
+
+          - name: Upload coverage artifact
+            uses: actions/upload-artifact@v4
+            with:
+              name: coverage-xml
+              path: tasks/tasks5/coverage.xml
+
+          - name: (Optional) Upload to Codecov
+            if: env.CODECOV_TOKEN != ''
+            uses: codecov/codecov-action@v4
+            with:
+              files: tasks/tasks5/coverage.xml
+              token: ${{ env.CODECOV_TOKEN }}
