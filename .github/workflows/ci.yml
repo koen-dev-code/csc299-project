@@ -65,12 +65,17 @@ jobs:
               PYTHONPATH=tasks/tasks5/src coverage run -m unittest discover -s tasks/tasks5/tests -p "test*.py" -v
               coverage xml -i -o coverage.xml
               coverage html -d coverage_html
+              # copy coverage.xml to the workspace subdir so the existing upload step finds it
+              mkdir -p tasks/tasks5 || true
+              cp coverage.xml tasks/tasks5/coverage.xml || true
 
           - name: Upload coverage artifact
             uses: actions/upload-artifact@v4
             with:
               name: coverage-xml
-              path: tasks/tasks5/coverage.xml
+              path: |
+                coverage.xml
+                tasks/tasks5/coverage.xml
 
           - name: (Optional) Upload to Codecov
             if: env.CODECOV_TOKEN != ''
