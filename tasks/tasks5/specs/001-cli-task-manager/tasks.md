@@ -41,7 +41,7 @@ description: "Task list for CLI Task Management (001-cli-task-manager)"
 ### Implementation for User Story 1
 - [ ] T012 [US1] Implement `add_task(title, description)` in `tasks/tasks5/src/taskcli/store.py` (ensure validation: non-empty title)
 - [ ] T013 [US1] Implement CLI `add` subcommand in `tasks/tasks5/src/taskcli/cli.py` to call `add_task` and print id + confirmation
-- [ ] T014 [US1] Add integration test that runs the CLI `add` (via `python -m taskcli add`) and checks `list` output (file: `tasks/tasks5/tests/test_cli_integration.py`)
+- [X] T014 [US1] Add integration test that runs the CLI `add` (via `python -m taskcli add`) and checks `list` output (file: `tasks/tasks5/tests/test_cli_integration.py`)
 - [ ] T015 [US1] Update `specs/001-cli-task-manager/quickstart.md` with an `add` example showing expected output
 
 **Checkpoint**: User Story 1 should be fully functional and testable independently
@@ -58,7 +58,7 @@ description: "Task list for CLI Task Management (001-cli-task-manager)"
 ### Implementation for User Story 2
 - [ ] T017 [US2] Implement `delete_task(task_id)` in `tasks/tasks5/src/taskcli/store.py` (safe mutation without corrupting storage)
 - [ ] T018 [US2] Implement CLI `delete` subcommand in `tasks/tasks5/src/taskcli/cli.py` to call `delete_task` and print confirmation or error (exit code mapping: 0 success, 2 not found)
-- [ ] T019 [US2] Add integration test covering successful delete and delete-not-found behavior (file: `tasks/tasks5/tests/test_cli_delete_integration.py`)
+- [X] T019 [US2] Add integration test covering successful delete and delete-not-found behavior (file: `tasks/tasks5/tests/test_cli_delete_integration.py`)
 
 **Checkpoint**: User Story 2 independently testable
 
@@ -69,7 +69,7 @@ description: "Task list for CLI Task Management (001-cli-task-manager)"
 **Independent Test**: Add multiple tasks then run `python -m taskcli list` and verify output lines (or `--format json` returns JSON array)
 
 ### Tests for User Story 3
-- [ ] T020 [US3] Create unit or CLI test: verify `list_tasks()` returns all tasks in insertion order and `--format json` returns valid JSON (file: `tasks/tasks5/tests/test_cli_list_integration.py`)
+- [X] T020 [US3] Create unit or CLI test: verify `list_tasks()` returns all tasks in insertion order and `--format json` returns valid JSON (file: `tasks/tasks5/tests/test_cli_list_integration.py`)
 
 ### Implementation for User Story 3
 - [ ] T021 [US3] Implement `list` CLI output formatting (human + `--format json`) in `tasks/tasks5/src/taskcli/cli.py`
