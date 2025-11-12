@@ -24,4 +24,5 @@ jobs:
           cd tasks/tasks5
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          python -m unittest discover -v
+          # Ensure local src/ is on PYTHONPATH so tests can import the `taskcli` package
+          PYTHONPATH=./src python -m unittest discover -v
