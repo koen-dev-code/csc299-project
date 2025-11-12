@@ -36,6 +36,8 @@ jobs:
 
           - name: Debug: list files & discovery
             run: |
+              # Redirect all debug output to debug_ci.txt so we can upload it as an artifact
+              exec > debug_ci.txt 2>&1
               echo "--- PWD ---"
               pwd
               echo "--- Python version ---"
@@ -46,17 +48,27 @@ jobs:
               env | sort
               echo "--- Listing repo root ---"
               ls -la
-              echo "--- Find test files (maxdepth 4) ---"
-              find . -maxdepth 4 -name 'test*.py' -print || true
+              echo "--- Listing tasks/tasks5 ---"
+              ls -la tasks/tasks5 || true
+              echo "--- Find test files (maxdepth 6) ---"
+              find . -maxdepth 6 -name 'test*.py' -print || true
               echo "--- Discover tests in repo-root tests/ ---"
               PYTHONPATH=tasks/tasks5/src python -m unittest discover -s tests -p "test*.py" -v || true
               echo "--- Discover tests in tasks/tasks5/tests/ ---"
+              PYTHONPATH=tasks/tasks5/src python -m unittest discover -s tasks/tasks5/tests -p "test*.py" -v || true
+              echo "--- Run unit tests (explicit) ---"
               PYTHONPATH=tasks/tasks5/src python -m unittest discover -s tasks/tasks5/tests -p "test*.py" -v || true
 
           - name: Run unit tests
             run: |
               # Run test discovery from repository root; ensure package source is on PYTHONPATH
               PYTHONPATH=tasks/tasks5/src python -m unittest discover -v
+
+          - name: Upload CI debug artifact
+            uses: actions/upload-artifact@v4
+            with:
+              name: ci-debug
+              path: debug_ci.txt
 
       coverage:
         runs-on: ubuntu-latest
