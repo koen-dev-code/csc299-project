@@ -5,6 +5,8 @@
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
 
+**Constitution Alignment**: This specification must be written to align with `.specify/memory/constitution.md`. Emphasize Simplicity, Test-First, Readability, Usability, and Observability. Requirements should remain technology-agnostic and testable.
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--

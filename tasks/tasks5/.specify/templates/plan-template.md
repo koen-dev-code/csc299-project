@@ -3,6 +3,8 @@
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
+**Constitution Alignment**: Refer to `.specify/memory/constitution.md` and ensure the plan follows the core principles: Simplicity, Test-First, Readability, Usability, and Observability. Any deviations must be justified in the "Complexity Tracking" section.
+
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary

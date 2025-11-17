@@ -2,6 +2,8 @@
 
 Auto-generated from all feature plans. Last updated: [DATE]
 
+**Constitution Alignment**: This document should reflect and summarize how active plans comply with `.specify/memory/constitution.md` (Simplicity, Test-First, Readability, Usability, Observability). Highlight any major deviations in the "Recent Changes" section.
+
 ## Active Technologies
 
 [EXTRACTED FROM ALL PLAN.MD FILES]

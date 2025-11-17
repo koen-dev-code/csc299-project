@@ -12,6 +12,8 @@ description: "Task list template for feature implementation"
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
+**Constitution Alignment**: Ensure tasks and task granularity reflect the constitution principles: prefer simple, testable tasks; author tests first (where applicable); include documentation and observability tasks as part of implementation.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
