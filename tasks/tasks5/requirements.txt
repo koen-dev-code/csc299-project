@@ -1,1 +1,3 @@
 # No external dependencies required for the simple CLI
+# Developer/test dependencies (install with `uv install -r requirements-dev.txt`)
+
