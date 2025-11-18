@@ -1,11 +1,13 @@
 import argparse
 import os
 from typing import Optional
+
 from .models import Task
 from .storage import JSONStorage
 
 
-def get_storage(path: Optional[str] = None) -> JSONStorage:
+def get_storage(path: "Optional[str]" = None) -> JSONStorage:
+    from typing import Optional
     return JSONStorage(path=path)
 
 
