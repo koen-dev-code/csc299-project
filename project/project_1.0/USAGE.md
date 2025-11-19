@@ -65,6 +65,22 @@ python -m tasker check
 
 This command verifies the Neo4j connection (using `NEO4J_*` env vars) and OpenAI (if `OPENAI_API_KEY` is set).
 
+Delete all / completed tasks
+
+Delete everything (asks for confirmation unless you pass `--yes`):
+
+```powershell
+python -m tasker delete-all
+python -m tasker delete-all --yes
+```
+
+Delete only completed tasks (asks for confirmation unless `--yes` provided):
+
+```powershell
+python -m tasker delete-completed
+python -m tasker delete-completed --yes
+```
+
 Shorter references
 
 - Use the numeric index shown by `list` (1-based):

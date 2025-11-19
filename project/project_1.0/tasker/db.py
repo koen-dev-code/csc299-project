@@ -84,3 +84,21 @@ class TaskDB:
         with self._driver.session() as session:
             session.run(query, id=task_id)
         return True
+
+    def delete_all_tasks(self) -> int:
+        """Delete all Task nodes and return the number deleted."""
+        with self._driver.session() as session:
+            rec = session.run("MATCH (t:Task) RETURN count(t) AS c").single()
+            count = int(rec["c"]) if rec and rec["c"] is not None else 0
+            if count:
+                session.run("MATCH (t:Task) DETACH DELETE t")
+            return count
+
+    def delete_completed_tasks(self) -> int:
+        """Delete all tasks where `done` is true and return the number deleted."""
+        with self._driver.session() as session:
+            rec = session.run("MATCH (t:Task {done:true}) RETURN count(t) AS c").single()
+            count = int(rec["c"]) if rec and rec["c"] is not None else 0
+            if count:
+                session.run("MATCH (t:Task {done:true}) DETACH DELETE t")
+            return count

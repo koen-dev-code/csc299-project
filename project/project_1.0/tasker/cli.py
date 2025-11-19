@@ -333,3 +333,35 @@ def delete(task_id: str = typer.Argument(..., help="ID of the task to delete")) 
         typer.echo(f"Deleted task {full_id}")
     finally:
         db.close()
+
+
+@app.command("delete-all")
+def delete_all(yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation")) -> None:
+    """Delete all tasks in the database (irreversible)."""
+    if not yes:
+        confirm = typer.confirm("This will delete ALL tasks. Are you sure?")
+        if not confirm:
+            typer.echo("Aborted.")
+            raise typer.Exit()
+    db = _get_db()
+    try:
+        count = db.delete_all_tasks()
+        typer.echo(f"Deleted {count} tasks.")
+    finally:
+        db.close()
+
+
+@app.command("delete-completed")
+def delete_completed(yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation")) -> None:
+    """Delete all tasks marked completed (done=true)."""
+    if not yes:
+        confirm = typer.confirm("This will delete all completed tasks. Continue?")
+        if not confirm:
+            typer.echo("Aborted.")
+            raise typer.Exit()
+    db = _get_db()
+    try:
+        count = db.delete_completed_tasks()
+        typer.echo(f"Deleted {count} completed tasks.")
+    finally:
+        db.close()
