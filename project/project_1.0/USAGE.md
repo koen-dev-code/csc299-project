@@ -16,11 +16,21 @@ Run CLI
 ```powershell
 python -m tasker add "Buy milk" -d "2 liters"
 ```
-You can add tags by passing `-t/--tag` multiple times:
+ You can add tags by passing `-t/--tag` multiple times:
 
 ```powershell
 python -m tasker add "Buy milk" -d "2 liters" -t grocery -t home
 ```
+ 
+Auto-suggest tags with OpenAI
+
+If you have an OpenAI API key in `OPENAI_API_KEY`, the CLI can ask the OpenAI Chat Completions API to suggest tags for a newly created task. Use `--suggest` when adding a task:
+
+```powershell
+python -m tasker add "Buy milk" -d "2 liters" --suggest
+```
+
+The CLI will attempt to persist any suggested tags returned by the model.
 
 - List tasks:
 
@@ -46,6 +56,14 @@ python -m tasker complete <task-id>
 ```powershell
 python -m tasker delete <task-id>
 ```
+
+Health checks
+
+```powershell
+python -m tasker check
+```
+
+This command verifies the Neo4j connection (using `NEO4J_*` env vars) and OpenAI (if `OPENAI_API_KEY` is set).
 
 Shorter references
 
