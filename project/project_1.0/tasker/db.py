@@ -22,27 +22,37 @@ class TaskDB:
         """Close the underlying Neo4j driver."""
         self._driver.close()
 
-    def create_task(self, title: str, description: str = "") -> Dict:
+    def create_task(self, title: str, description: str = "", tags: Optional[List[str]] = None) -> Dict:
         """Create a new task and return its properties."""
         task_id = str(uuid.uuid4())
         query = (
-            "CREATE (t:Task {id:$id, title:$title, description:$description, done:false, created:datetime()}) "
+            "CREATE (t:Task {id:$id, title:$title, description:$description, done:false, tags:$tags, created:datetime()}) "
             "RETURN t"
         )
+        tags_list = tags or []
         with self._driver.session() as session:
-            rec = session.run(query, id=task_id, title=title, description=description).single()
+            rec = session.run(query, id=task_id, title=title, description=description, tags=tags_list).single()
             node = rec["t"]
             props = dict(node)
             return props
 
-    def list_tasks(self, only_done: Optional[bool] = None) -> List[Dict]:
-        """List tasks. If `only_done` is True/False filter by `done`, otherwise return all."""
-        if only_done is None:
-            query = "MATCH (t:Task) RETURN t ORDER BY t.created DESC"
-            params = {}
-        else:
-            query = "MATCH (t:Task {done:$done}) RETURN t ORDER BY t.created DESC"
-            params = {"done": only_done}
+    def list_tasks(self, only_done: Optional[bool] = None, tag: Optional[str] = None) -> List[Dict]:
+        """List tasks.
+
+        If `only_done` is True/False filter by `done`, otherwise return all.
+        If `tag` is provided, only return tasks that include the tag in their `tags` list.
+        """
+        params = {}
+        where_clauses: list[str] = []
+        if only_done is not None:
+            where_clauses.append("t.done = $done")
+            params["done"] = only_done
+        if tag:
+            where_clauses.append("$tag IN t.tags")
+            params["tag"] = tag
+
+        where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+        query = f"MATCH (t:Task) {where} RETURN t ORDER BY t.created DESC"
         tasks: List[Dict] = []
         with self._driver.session() as session:
             result = session.run(query, **params)
@@ -52,6 +62,9 @@ class TaskDB:
                 # Ensure created is JSON-serializable string
                 if "created" in props:
                     props["created"] = str(props["created"])
+                # Ensure tags is a plain list
+                if "tags" in props and props["tags"] is None:
+                    props["tags"] = []
                 tasks.append(props)
         return tasks
 

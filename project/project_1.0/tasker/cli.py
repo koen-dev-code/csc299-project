@@ -60,27 +60,36 @@ def _resolve_task_id(identifier: str, db: TaskDB) -> str:
 
 
 @app.command()
-def add(title: str = typer.Argument(..., help="Title of the task"), description: Optional[str] = typer.Option(None, "-d", "--description", help="Optional task description")) -> None:
+def add(
+    title: str = typer.Argument(..., help="Title of the task"),
+    description: Optional[str] = typer.Option(None, "-d", "--description", help="Optional task description"),
+    tags: Optional[List[str]] = typer.Option(None, "-t", "--tag", help="Tag(s) for the task; pass multiple times"),
+) -> None:
     """Add a new task."""
     db = _get_db()
     try:
-        task = db.create_task(title, description or "")
+        tag_list = list(tags) if tags else []
+        task = db.create_task(title, description or "", tags=tag_list)
         typer.echo(f"Created task {task.get('id')}: {task.get('title')}")
     finally:
         db.close()
 
 
 @app.command("list")
-def list_tasks(status: str = typer.Option("all", "-s", "--status", help="Filter tasks: all|done|todo")) -> None:
+def list_tasks(
+    status: str = typer.Option("all", "-s", "--status", help="Filter tasks: all|done|todo"),
+    tag: Optional[str] = typer.Option(None, "-t", "--tag", help="Filter tasks by a tag"),
+) -> None:
     """List tasks (all, done, or todo)."""
     db = _get_db()
     try:
+        only_done = None
         if status == "done":
-            items = db.list_tasks(only_done=True)
+            only_done = True
         elif status == "todo":
-            items = db.list_tasks(only_done=False)
-        else:
-            items = db.list_tasks()
+            only_done = False
+
+        items = db.list_tasks(only_done=only_done, tag=tag)
         if not items:
             typer.echo("No tasks found.")
             return
@@ -88,7 +97,9 @@ def list_tasks(status: str = typer.Option("all", "-s", "--status", help="Filter 
             mark = "✓" if t.get("done") else " "
             desc = t.get("description") or ""
             short = t.get("id", "")[:8]
-            typer.echo(f"{i:2d}. {short} [{mark}] {t.get('title')} - {desc}")
+            tags_out = ",".join(t.get("tags", [])) if t.get("tags") else ""
+            tag_display = f" [{tags_out}]" if tags_out else ""
+            typer.echo(f"{i:2d}. {short} [{mark}] {t.get('title')}{tag_display} - {desc}")
     finally:
         db.close()
 

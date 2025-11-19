@@ -16,6 +16,11 @@ Run CLI
 ```powershell
 python -m tasker add "Buy milk" -d "2 liters"
 ```
+You can add tags by passing `-t/--tag` multiple times:
+
+```powershell
+python -m tasker add "Buy milk" -d "2 liters" -t grocery -t home
+```
 
 - List tasks:
 
@@ -23,6 +28,11 @@ python -m tasker add "Buy milk" -d "2 liters"
 python -m tasker list
 python -m tasker list --status todo
 python -m tasker list --status done
+Filter by tag:
+
+```powershell
+python -m tasker list -t grocery
+```
 ```
 
 - Mark done:
