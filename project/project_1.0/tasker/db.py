@@ -25,15 +25,36 @@ class TaskDB:
     def create_task(self, title: str, description: str = "", tags: Optional[List[str]] = None) -> Dict:
         """Create a new task and return its properties."""
         task_id = str(uuid.uuid4())
-        query = (
-            "CREATE (t:Task {id:$id, title:$title, description:$description, done:false, tags:$tags, created:datetime()}) "
-            "RETURN t"
-        )
         tags_list = tags or []
         with self._driver.session() as session:
-            rec = session.run(query, id=task_id, title=title, description=description, tags=tags_list).single()
+            # create task node
+            session.run(
+                "CREATE (t:Task {id:$id, title:$title, description:$description, done:false, created:datetime()})",
+                id=task_id,
+                title=title,
+                description=description,
+            )
+            # create/attach tags as Tag nodes
+            if tags_list:
+                session.run(
+                    "UNWIND $tags AS tagName "
+                    "MERGE (g:Tag {name:tagName}) "
+                    "WITH g "
+                    "MATCH (t:Task {id:$id}) "
+                    "MERGE (t)-[:HAS_TAG]->(g)",
+                    id=task_id,
+                    tags=tags_list,
+                )
+            # return task with collected tags
+            rec = session.run(
+                "MATCH (t:Task {id:$id}) OPTIONAL MATCH (t)-[:HAS_TAG]->(g:Tag) RETURN t, collect(DISTINCT g.name) AS tags",
+                id=task_id,
+            ).single()
             node = rec["t"]
             props = dict(node)
+            props["tags"] = rec["tags"] or []
+            if "created" in props:
+                props["created"] = str(props["created"])
             return props
 
     def list_tasks(self, only_done: Optional[bool] = None, tag: Optional[str] = None) -> List[Dict]:
@@ -51,20 +72,34 @@ class TaskDB:
             where_clauses.append("$tag IN t.tags")
             params["tag"] = tag
 
-        where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
-        query = f"MATCH (t:Task) {where} RETURN t ORDER BY t.created DESC"
         tasks: List[Dict] = []
         with self._driver.session() as session:
-            result = session.run(query, **params)
+            if tag:
+                # filter by Tag nodes
+                result = session.run(
+                    "MATCH (t:Task)-[:HAS_TAG]->(g:Tag {name:$tag}) OPTIONAL MATCH (t)-[:HAS_TAG]->(tg:Tag) "
+                    "RETURN t, collect(DISTINCT tg.name) AS tags ORDER BY t.created DESC",
+                    tag=tag,
+                )
+            else:
+                # apply done filter if present
+                if only_done is None:
+                    result = session.run(
+                        "MATCH (t:Task) OPTIONAL MATCH (t)-[:HAS_TAG]->(g:Tag) RETURN t, collect(DISTINCT g.name) AS tags ORDER BY t.created DESC"
+                    )
+                else:
+                    result = session.run(
+                        "MATCH (t:Task) WHERE t.done = $done OPTIONAL MATCH (t)-[:HAS_TAG]->(g:Tag) RETURN t, collect(DISTINCT g.name) AS tags ORDER BY t.created DESC",
+                        done=only_done,
+                    )
+
             for r in result:
                 node = r["t"]
                 props = dict(node)
                 # Ensure created is JSON-serializable string
                 if "created" in props:
                     props["created"] = str(props["created"])
-                # Ensure tags is a plain list
-                if "tags" in props and props["tags"] is None:
-                    props["tags"] = []
+                props["tags"] = r.get("tags") or []
                 tasks.append(props)
         return tasks
 
@@ -80,17 +115,16 @@ class TaskDB:
 
     def get_task(self, task_id: str) -> Optional[Dict]:
         """Return properties for a single task by id, or None if not found."""
-        query = "MATCH (t:Task {id:$id}) RETURN t"
+        query = "MATCH (t:Task {id:$id}) OPTIONAL MATCH (t)-[:HAS_TAG]->(g:Tag) RETURN t, collect(DISTINCT g.name) AS tags"
         with self._driver.session() as session:
             rec = session.run(query, id=task_id).single()
             if not rec:
                 return None
             node = rec["t"]
             props = dict(node)
+            props["tags"] = rec.get("tags") or []
             if "created" in props:
                 props["created"] = str(props["created"])
-            if "tags" in props and props["tags"] is None:
-                props["tags"] = []
             return props
 
     def delete_task(self, task_id: str) -> bool:
@@ -99,6 +133,80 @@ class TaskDB:
         with self._driver.session() as session:
             session.run(query, id=task_id)
         return True
+
+    def update_task(self, task_id: str, title: Optional[str] = None, description: Optional[str] = None, tags: Optional[List[str]] = None) -> Optional[Dict]:
+        """Update task properties; if `tags` is provided, replace tag relations."""
+        sets = []
+        params = {"id": task_id}
+        if title is not None:
+            sets.append("t.title = $title")
+            params["title"] = title
+        if description is not None:
+            sets.append("t.description = $description")
+            params["description"] = description
+
+        with self._driver.session() as session:
+            if sets:
+                set_clause = ", ".join(sets)
+                session.run(f"MATCH (t:Task {{id:$id}}) SET {set_clause}", **params)
+
+            if tags is not None:
+                # remove existing tag relationships
+                session.run("MATCH (t:Task {id:$id})-[r:HAS_TAG]->() DELETE r", id=task_id)
+                if tags:
+                    session.run(
+                        "UNWIND $tags AS tagName MERGE (g:Tag {name:tagName}) WITH g MATCH (t:Task {id:$id}) MERGE (t)-[:HAS_TAG]->(g)",
+                        id=task_id,
+                        tags=tags,
+                    )
+
+            # return updated task
+            rec = session.run("MATCH (t:Task {id:$id}) OPTIONAL MATCH (t)-[:HAS_TAG]->(g:Tag) RETURN t, collect(DISTINCT g.name) AS tags", id=task_id).single()
+            if not rec:
+                return None
+            node = rec["t"]
+            props = dict(node)
+            props["tags"] = rec.get("tags") or []
+            if "created" in props:
+                props["created"] = str(props["created"])
+            return props
+
+    def create_constraints(self) -> None:
+        """Create helpful constraints for Task and Tag nodes (if not exists)."""
+        with self._driver.session() as session:
+            # Unique constraint for Task.id
+            session.run(
+                "CREATE CONSTRAINT IF NOT EXISTS FOR (t:Task) REQUIRE (t.id) IS UNIQUE"
+            )
+            # Unique constraint for Tag.name
+            session.run(
+                "CREATE CONSTRAINT IF NOT EXISTS FOR (g:Tag) REQUIRE (g.name) IS UNIQUE"
+            )
+
+    def migrate_tags_to_nodes(self) -> int:
+        """Migrate tasks that have a `tags` property (list) into `:Tag` nodes and `HAS_TAG` rels.
+
+        Returns the number of tasks migrated.
+        """
+        with self._driver.session() as session:
+            # find tasks with tags property
+            rec = session.run("MATCH (t:Task) WHERE exists(t.tags) RETURN t.id AS id, t.tags AS tags").data()
+            count = 0
+            for row in rec:
+                tid = row["id"]
+                tags = row.get("tags") or []
+                if not tags:
+                    # remove empty property
+                    session.run("MATCH (t:Task {id:$id}) REMOVE t.tags", id=tid)
+                    continue
+                session.run(
+                    "UNWIND $tags AS tagName MERGE (g:Tag {name:tagName}) WITH g MATCH (t:Task {id:$id}) MERGE (t)-[:HAS_TAG]->(g)",
+                    id=tid,
+                    tags=tags,
+                )
+                session.run("MATCH (t:Task {id:$id}) REMOVE t.tags", id=tid)
+                count += 1
+            return count
 
     def delete_all_tasks(self) -> int:
         """Delete all Task nodes and return the number deleted."""

@@ -377,6 +377,56 @@ def delete_completed(yes: bool = typer.Option(False, "--yes", "-y", help="Skip c
 
 
 @app.command()
+def edit(
+    task: str = typer.Argument(..., help="Task identifier (index|short id|full id)"),
+    title: Optional[str] = typer.Option(None, "--title", "-T", help="New title"),
+    description: Optional[str] = typer.Option(None, "--description", "-d", help="New description"),
+    tags: Optional[List[str]] = typer.Option(None, "-t", "--tag", help="Replace tags (pass multiple times). If omitted tags are unchanged."),
+    clear_tags: bool = typer.Option(False, "--clear-tags", help="Remove all tags from the task"),
+) -> None:
+    """Edit a task's title, description, and/or tags."""
+    db = _get_db()
+    try:
+        full_id = _resolve_task_id(task, db)
+        tag_list = None
+        if clear_tags:
+            tag_list = []
+        elif tags is not None:
+            tag_list = list(tags)
+
+        updated = db.update_task(full_id, title=title, description=description, tags=tag_list)
+        if not updated:
+            typer.echo("Task not found.")
+            raise typer.Exit(code=2)
+        short = (updated.get("id") or "")[:8]
+        typer.echo(f"Updated {short}: {updated.get('title')}")
+    finally:
+        db.close()
+
+
+@app.command("init-db")
+def init_db() -> None:
+    """Create DB constraints (Task.id unique, Tag.name unique)."""
+    db = _get_db()
+    try:
+        db.create_constraints()
+        typer.echo("DB constraints created (if they did not already exist).")
+    finally:
+        db.close()
+
+
+@app.command("migrate-tags")
+def migrate_tags() -> None:
+    """Migrate existing tasks with `tags` property into Tag nodes and HAS_TAG relations."""
+    db = _get_db()
+    try:
+        n = db.migrate_tags_to_nodes()
+        typer.echo(f"Migrated tags for {n} task(s).")
+    finally:
+        db.close()
+
+
+@app.command()
 def link(
     source: str = typer.Argument(..., help="Source task (index, short id, or full id)"),
     target: str = typer.Argument(..., help="Target task (index, short id, or full id)"),

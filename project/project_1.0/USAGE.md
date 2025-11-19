@@ -2,7 +2,8 @@
 
 Quick start
 
-- Copy `.env.example` to `.env` and set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`.
+- Copy `.env.example` to `.env` and set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, and `OPENAI_API_KEY`.
+
 - Install dependencies (venv recommended):
 
 ```powershell
@@ -102,6 +103,29 @@ python -m tasker links <task>
 ```
 
 `<source>`, `<target>`, and `<task>` support numeric index, short id prefix, or full id (same as other commands).
+
+DB initialization and migration
+
+Create recommended DB constraints (task id uniqueness, tag name uniqueness):
+
+```powershell
+python -m tasker init-db
+```
+
+Migrate existing `tags` list properties into `:Tag` nodes and `HAS_TAG` relationships:
+
+```powershell
+python -m tasker migrate-tags
+```
+
+Edit tasks
+
+Update a task's title, description, and tags. Pass `-t/--tag` multiple times to replace tags. Use `--clear-tags` to remove all tags.
+
+```powershell
+python -m tasker edit <task> --title "New title" --description "New desc" -t home -t urgent
+python -m tasker edit <task> --clear-tags
+```
 
 Shorter references
 
