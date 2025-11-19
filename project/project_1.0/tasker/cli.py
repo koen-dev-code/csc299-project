@@ -24,6 +24,41 @@ def _get_db() -> TaskDB:
     return TaskDB(uri, user, password)
 
 
+def _resolve_task_id(identifier: str, db: TaskDB) -> str:
+    """Resolve a user-supplied identifier to a full task id.
+
+    Allowed forms:
+    - numeric index as shown by `list` (1-based)
+    - short prefix of the UUID (must be unique)
+    - full UUID
+    """
+    # numeric index
+    if identifier.isdigit():
+        idx = int(identifier) - 1
+        items = db.list_tasks()
+        if idx < 0 or idx >= len(items):
+            typer.echo(f"Index out of range: {identifier}")
+            raise typer.Exit(code=2)
+        return items[idx]["id"]
+
+    # try unique prefix match (common case)
+    items = db.list_tasks()
+    matches = [t for t in items if t.get("id", "").startswith(identifier)]
+    if len(matches) == 1:
+        return matches[0]["id"]
+    if len(matches) > 1:
+        typer.echo(f"Ambiguous id prefix: {identifier} matches multiple tasks")
+        raise typer.Exit(code=2)
+
+    # fallback: assume full id
+    for t in items:
+        if t.get("id") == identifier:
+            return identifier
+
+    typer.echo(f"Task not found: {identifier}")
+    raise typer.Exit(code=2)
+
+
 @app.command()
 def add(title: str = typer.Argument(..., help="Title of the task"), description: Optional[str] = typer.Option(None, "-d", "--description", help="Optional task description")) -> None:
     """Add a new task."""
@@ -49,10 +84,11 @@ def list_tasks(status: str = typer.Option("all", "-s", "--status", help="Filter 
         if not items:
             typer.echo("No tasks found.")
             return
-        for t in items:
+        for i, t in enumerate(items, start=1):
             mark = "✓" if t.get("done") else " "
             desc = t.get("description") or ""
-            typer.echo(f"{t.get('id')} [{mark}] {t.get('title')} - {desc}")
+            short = t.get("id", "")[:8]
+            typer.echo(f"{i:2d}. {short} [{mark}] {t.get('title')} - {desc}")
     finally:
         db.close()
 
@@ -62,7 +98,8 @@ def complete(task_id: str = typer.Argument(..., help="ID of the task to mark don
     """Mark a task as completed."""
     db = _get_db()
     try:
-        updated = db.complete_task(task_id)
+        full_id = _resolve_task_id(task_id, db)
+        updated = db.complete_task(full_id)
         if not updated:
             typer.echo("Task not found.")
             raise typer.Exit(code=2)
@@ -76,7 +113,8 @@ def delete(task_id: str = typer.Argument(..., help="ID of the task to delete")) 
     """Delete a task by id."""
     db = _get_db()
     try:
-        db.delete_task(task_id)
-        typer.echo(f"Deleted task {task_id}")
+        full_id = _resolve_task_id(task_id, db)
+        db.delete_task(full_id)
+        typer.echo(f"Deleted task {full_id}")
     finally:
         db.close()

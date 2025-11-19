@@ -37,6 +37,22 @@ python -m tasker complete <task-id>
 python -m tasker delete <task-id>
 ```
 
+Shorter references
+
+- Use the numeric index shown by `list` (1-based):
+
+```powershell
+python -m tasker complete 1
+python -m tasker delete 2
+```
+
+- Use a short unique prefix of the id (first characters) instead of the full UUID:
+
+```powershell
+# If list shows '3a606c47...' you can do:
+python -m tasker complete 3a606c47
+```
+
 Notes
 
 - The project already lists `neo4j` and `typer` in `pyproject.toml`. `requirements.txt` is provided for simple `pip` installs.
