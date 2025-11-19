@@ -28,55 +28,122 @@ def _get_db() -> TaskDB:
 
 
 def suggest_tags_with_openai(title: str, description: str | None) -> List[str]:
-    """Ask OpenAI Chat Completions to suggest tags for a task.
+    """Request tag suggestions from OpenAI and return a filtered list of allowed tags.
 
-    Returns a list of single-word tags (may be empty). Relies on `OPENAI_API_KEY` env var.
+    Robustly handles both the new `openai.OpenAI` client and the older
+    `openai.ChatCompletion.create` interface. The model is instructed to only
+    return tags from the `allowed` list, but we defensively parse the result
+    as JSON or a comma-separated list and fall back to extracting allowed
+    words.
     """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        typer.echo("Missing OPENAI_API_KEY environment variable. See `.env.example`.")
         return []
-    openai.api_key = api_key
+
+    # try to set legacy API key if present; new client ignores this
+    try:
+        openai.api_key = api_key
+    except Exception:
+        pass
 
     allowed = ["store", "home", "work", "urgent", "later", "errands", "finance", "personal", "health"]
-    prompt = (
-        "You are a tag recommender. Given a task title and optional description, choose zero or more tags from the following allowed list and return a JSON array and nothing else: "
-        + ", ".join(allowed)
-        + ".\n\nTask title: "
+
+    system_msg = (
+        "You are a helpful assistant that recommends zero or more tags for a task."
+        " Only choose tags from the allowed list and return them in a simple format (preferably a JSON array, e.g. [\"home\",\"store\"])."
+    )
+    user_msg = (
+        "Allowed tags: " + ", ".join(allowed) + "\n\n"
+        + "Task title: "
         + title
         + "\nTask description: "
         + (description or "")
-        + "\n\nOnly return a JSON array of tags from the allowed list. Do not include any other text."
+        + "\n\nReturn only a JSON array of selected tags from the allowed list, or an empty array [] if none."
     )
 
+    content = ""
     try:
-        resp = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=60,
-            temperature=0.0,
-        )
-        content = resp["choices"][0]["message"]["content"].strip()
-        # Try to extract the first JSON array found in the content
-        try:
-            parsed = json.loads(content)
-            if isinstance(parsed, list):
-                # filter to allowed values and single-word tags
-                return [t for t in parsed if isinstance(t, str) and t in allowed]
-        except Exception:
-            # attempt to recover by finding a bracketed substring
-            start = content.find("[")
-            end = content.rfind("]")
-            if start != -1 and end != -1 and end > start:
-                try:
-                    parsed = json.loads(content[start : end + 1])
-                    if isinstance(parsed, list):
-                        return [t for t in parsed if isinstance(t, str) and t in allowed]
-                except Exception:
-                    pass
+        OpenAIClient = getattr(openai, "OpenAI", None)
+        if OpenAIClient is not None:
+            client = OpenAIClient()
+            resp = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}],
+                max_tokens=80,
+                temperature=0.0,
+            )
+            # new client: resp.choices[0].message.content
+            content = getattr(getattr(resp.choices[0], "message", None), "content", "") or ""
+        else:
+            resp = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "system", "content": system_msg}, {"role": "user", "content": user_msg}],
+                max_tokens=80,
+                temperature=0.0,
+            )
+            content = resp["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return []
+
+    content = content.strip()
+    if not content:
+        return []
+
+    # 1) Try parsing as JSON array
+    try:
+        parsed = json.loads(content)
+        if isinstance(parsed, list):
+            seen = set()
+            out = []
+            for t in parsed:
+                if isinstance(t, str):
+                    key = t.strip().lower()
+                    if key in allowed and key not in seen:
+                        seen.add(key)
+                        out.append(key)
+            return out
     except Exception:
         pass
-    return []
+
+    # 2) If content contains a JSON-like substring, try to extract first bracketed array
+    start = content.find("[")
+    end = content.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        try:
+            parsed = json.loads(content[start : end + 1])
+            if isinstance(parsed, list):
+                seen = set()
+                out = []
+                for t in parsed:
+                    if isinstance(t, str):
+                        key = t.strip().lower()
+                        if key in allowed and key not in seen:
+                            seen.add(key)
+                            out.append(key)
+                return out
+        except Exception:
+            pass
+
+    # 3) Otherwise, split on commas or whitespace and filter allowed words
+    tokens = [tok.strip().lower().strip(".,") for tok in content.replace("\n", ",").split(",") if tok.strip()]
+    seen = set()
+    out = []
+    for tok in tokens:
+        # tok may be a phrase; check if any allowed word is contained
+        for a in allowed:
+            if tok == a or tok.startswith(a + " ") or (" " + a) in tok or tok.endswith(" " + a):
+                if a not in seen:
+                    seen.add(a)
+                    out.append(a)
+    # final fallback: find any allowed words in the content
+    if not out:
+        for a in allowed:
+            if a in content.lower().split():
+                if a not in seen:
+                    seen.add(a)
+                    out.append(a)
+
+    return out
 
 
 @app.command()
