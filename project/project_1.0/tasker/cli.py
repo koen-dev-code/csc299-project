@@ -255,7 +255,8 @@ def add(
     try:
         tag_list = list(tags) if tags else []
         task = db.create_task(title, description or "", tags=tag_list)
-        typer.echo(f"Created task {task.get('id')}: {task.get('title')}")
+        short = (task.get("id") or "")[:8]
+        typer.echo(f"Created task {short}: {task.get('title')}")
 
         # Optionally ask OpenAI for tag suggestions and apply them
         if suggest:
@@ -318,7 +319,8 @@ def complete(task_id: str = typer.Argument(..., help="ID of the task to mark don
         if not updated:
             typer.echo("Task not found.")
             raise typer.Exit(code=2)
-        typer.echo(f"Marked done: {updated.get('id')} - {updated.get('title')}")
+        short = (updated.get("id") or "")[:8]
+        typer.echo(f"Marked done: {short} - {updated.get('title')}")
     finally:
         db.close()
 
@@ -329,8 +331,15 @@ def delete(task_id: str = typer.Argument(..., help="ID of the task to delete")) 
     db = _get_db()
     try:
         full_id = _resolve_task_id(task_id, db)
+        # fetch title for friendlier message
+        task = db.get_task(full_id)
+        title = task.get("title") if task else None
         db.delete_task(full_id)
-        typer.echo(f"Deleted task {full_id}")
+        short = (full_id or "")[:8]
+        if title:
+            typer.echo(f"Deleted task {short}: {title}")
+        else:
+            typer.echo(f"Deleted task {short}")
     finally:
         db.close()
 
@@ -363,5 +372,64 @@ def delete_completed(yes: bool = typer.Option(False, "--yes", "-y", help="Skip c
     try:
         count = db.delete_completed_tasks()
         typer.echo(f"Deleted {count} completed tasks.")
+    finally:
+        db.close()
+
+
+@app.command()
+def link(
+    source: str = typer.Argument(..., help="Source task (index, short id, or full id)"),
+    target: str = typer.Argument(..., help="Target task (index, short id, or full id)"),
+    kind: str = typer.Option("depends", "-k", "--kind", help="Kind of link (stored in relationship `kind`)")
+) -> None:
+    """Create a link from SOURCE -> TARGET (relationship stored with `kind`)."""
+    db = _get_db()
+    try:
+        src_id = _resolve_task_id(source, db)
+        tgt_id = _resolve_task_id(target, db)
+        db.create_link(src_id, tgt_id, kind=kind)
+        s_short = (src_id or "")[:8]
+        t_short = (tgt_id or "")[:8]
+        typer.echo(f"Linked {s_short} -[{kind}]-> {t_short}")
+    finally:
+        db.close()
+
+
+@app.command()
+def unlink(
+    source: str = typer.Argument(..., help="Source task (index, short id, or full id)"),
+    target: str = typer.Argument(..., help="Target task (index, short id, or full id)"),
+    kind: str = typer.Option("depends", "-k", "--kind", help="Kind of link to remove"),
+) -> None:
+    """Remove a link of the given kind from SOURCE -> TARGET. Prints number removed."""
+    db = _get_db()
+    try:
+        src_id = _resolve_task_id(source, db)
+        tgt_id = _resolve_task_id(target, db)
+        cnt = db.delete_link(src_id, tgt_id, kind=kind)
+        s_short = (src_id or "")[:8]
+        t_short = (tgt_id or "")[:8]
+        typer.echo(f"Deleted {cnt} link(s) of kind '{kind}' between {s_short} and {t_short}")
+    finally:
+        db.close()
+
+
+@app.command()
+def links(task_id: str = typer.Argument(..., help="Task (index, short id, or full id) to show links for")) -> None:
+    """Show links for a task (both outgoing and incoming)."""
+    db = _get_db()
+    try:
+        full_id = _resolve_task_id(task_id, db)
+        items = db.get_links(full_id)
+        if not items:
+            typer.echo("No links found.")
+            return
+        for i, it in enumerate(items, start=1):
+            dir_sym = "->" if it["direction"] == "out" else "<-"
+            t = it["task"]
+            short = t.get("id", "")[:8]
+            tags_out = ",".join(t.get("tags", [])) if t.get("tags") else ""
+            tag_display = f" [{tags_out}]" if tags_out else ""
+            typer.echo(f"{i:2d}. {dir_sym} {short} [{it.get('kind')}] {t.get('title')}{tag_display}")
     finally:
         db.close()

@@ -81,6 +81,28 @@ python -m tasker delete-completed
 python -m tasker delete-completed --yes
 ```
 
+Linking tasks
+
+Create a link from one task to another (relationship `kind` is stored as property):
+
+```powershell
+python -m tasker link <source> <target> -k depends
+```
+
+Remove a link between two tasks:
+
+```powershell
+python -m tasker unlink <source> <target> -k depends
+```
+
+Show links for a task (incoming and outgoing):
+
+```powershell
+python -m tasker links <task>
+```
+
+`<source>`, `<target>`, and `<task>` support numeric index, short id prefix, or full id (same as other commands).
+
 Shorter references
 
 - Use the numeric index shown by `list` (1-based):

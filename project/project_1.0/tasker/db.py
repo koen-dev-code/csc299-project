@@ -78,6 +78,21 @@ class TaskDB:
             node = rec["t"]
             return dict(node)
 
+    def get_task(self, task_id: str) -> Optional[Dict]:
+        """Return properties for a single task by id, or None if not found."""
+        query = "MATCH (t:Task {id:$id}) RETURN t"
+        with self._driver.session() as session:
+            rec = session.run(query, id=task_id).single()
+            if not rec:
+                return None
+            node = rec["t"]
+            props = dict(node)
+            if "created" in props:
+                props["created"] = str(props["created"])
+            if "tags" in props and props["tags"] is None:
+                props["tags"] = []
+            return props
+
     def delete_task(self, task_id: str) -> bool:
         """Delete a task by id; returns True (always) for now."""
         query = "MATCH (t:Task {id:$id}) DETACH DELETE t"
@@ -102,3 +117,64 @@ class TaskDB:
             if count:
                 session.run("MATCH (t:Task {done:true}) DETACH DELETE t")
             return count
+
+    # -- Linking tasks -------------------------------------------------
+    def create_link(self, source_id: str, target_id: str, kind: str = "depends") -> bool:
+        """Create a LINK relationship from source -> target with a `kind` property.
+
+        Uses a generic relationship type `LINK` and stores the human-readable
+        kind in a property so we avoid dynamic relationship types.
+        Returns True if the operation completed (node existence not strictly verified here).
+        """
+        query = (
+            "MATCH (a:Task {id:$a}), (b:Task {id:$b}) "
+            "MERGE (a)-[r:LINK {kind:$kind}]->(b) RETURN count(r) AS c"
+        )
+        with self._driver.session() as session:
+            rec = session.run(query, a=source_id, b=target_id, kind=kind).single()
+            return True
+
+    def delete_link(self, source_id: str, target_id: str, kind: str = "depends") -> int:
+        """Delete LINK relationships of given kind from source -> target.
+
+        Returns the number of relationships deleted.
+        """
+        query = (
+            "MATCH (a:Task {id:$a})-[r:LINK {kind:$kind}]->(b:Task {id:$b}) "
+            "WITH r, count(r) AS c DELETE r RETURN c"
+        )
+        with self._driver.session() as session:
+            rec = session.run(query, a=source_id, b=target_id, kind=kind).single()
+            return int(rec["c"]) if rec and rec["c"] is not None else 0
+
+    def get_links(self, task_id: str) -> List[Dict]:
+        """Return linked tasks for a given task id.
+
+        Returns a list of dictionaries with keys: `direction` ("out"|"in"),
+        `kind`, and `task` (the linked task properties).
+        """
+        links: List[Dict] = []
+        with self._driver.session() as session:
+            # outgoing
+            q1 = "MATCH (t:Task {id:$id})-[r:LINK]->(o:Task) RETURN r.kind AS kind, o"
+            for rec in session.run(q1, id=task_id):
+                node = rec["o"]
+                props = dict(node)
+                if "created" in props:
+                    props["created"] = str(props["created"])
+                if "tags" in props and props["tags"] is None:
+                    props["tags"] = []
+                links.append({"direction": "out", "kind": rec.get("kind"), "task": props})
+
+            # incoming
+            q2 = "MATCH (o:Task)-[r:LINK]->(t:Task {id:$id}) RETURN r.kind AS kind, o"
+            for rec in session.run(q2, id=task_id):
+                node = rec["o"]
+                props = dict(node)
+                if "created" in props:
+                    props["created"] = str(props["created"])
+                if "tags" in props and props["tags"] is None:
+                    props["tags"] = []
+                links.append({"direction": "in", "kind": rec.get("kind"), "task": props})
+
+        return links
