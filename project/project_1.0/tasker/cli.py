@@ -34,12 +34,13 @@ def suggest_tags_with_openai(title: str, description: str | None) -> List[str]:
     """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
+        typer.echo("Missing OPENAI_API_KEY environment variable. See `.env.example`.")
         return []
     openai.api_key = api_key
 
     allowed = ["store", "home", "work", "urgent", "later", "errands", "finance", "personal", "health"]
     prompt = (
-        "You are a tag recommender. Given a task title and optional description, choose zero or more tags from the following allowed list and return a JSON array (e.g. [\"home\",\"store\"]) and nothing else: "
+        "You are a tag recommender. Given a task title and optional description, choose zero or more tags from the following allowed list and return a JSON array and nothing else: "
         + ", ".join(allowed)
         + ".\n\nTask title: "
         + title
@@ -50,7 +51,7 @@ def suggest_tags_with_openai(title: str, description: str | None) -> List[str]:
 
     try:
         resp = openai.ChatCompletion.create(
-            model="gpt-5-mini",
+            model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=60,
             temperature=0.0,
