@@ -437,10 +437,15 @@ def link(
     try:
         src_id = _resolve_task_id(source, db)
         tgt_id = _resolve_task_id(target, db)
+        # fetch titles for friendlier output
+        src_task = db.get_task(src_id)
+        tgt_task = db.get_task(tgt_id)
+        src_title = src_task.get("title") if src_task else "(unknown)"
+        tgt_title = tgt_task.get("title") if tgt_task else "(unknown)"
         db.create_link(src_id, tgt_id, kind=kind)
         s_short = (src_id or "")[:8]
         t_short = (tgt_id or "")[:8]
-        typer.echo(f"Linked {s_short} -[{kind}]-> {t_short}")
+        typer.echo(f"Linked {s_short} ({src_title}) -[{kind}]-> {t_short} ({tgt_title})")
     finally:
         db.close()
 
@@ -456,10 +461,15 @@ def unlink(
     try:
         src_id = _resolve_task_id(source, db)
         tgt_id = _resolve_task_id(target, db)
+        # fetch titles for output
+        src_task = db.get_task(src_id)
+        tgt_task = db.get_task(tgt_id)
+        src_title = src_task.get("title") if src_task else "(unknown)"
+        tgt_title = tgt_task.get("title") if tgt_task else "(unknown)"
         cnt = db.delete_link(src_id, tgt_id, kind=kind)
         s_short = (src_id or "")[:8]
         t_short = (tgt_id or "")[:8]
-        typer.echo(f"Deleted {cnt} link(s) of kind '{kind}' between {s_short} and {t_short}")
+        typer.echo(f"Deleted {cnt} link(s) of kind '{kind}' between {s_short} ({src_title}) and {t_short} ({tgt_title})")
     finally:
         db.close()
 
