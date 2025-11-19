@@ -1,0 +1,4 @@
+typer[all]
+python-dotenv
+neo4j
+rich
