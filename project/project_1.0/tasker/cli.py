@@ -265,13 +265,11 @@ def add(
                 # Merge unique tags with any provided tags
                 merged = list(dict.fromkeys((tag_list or []) + suggested))
                 try:
-                    with db._driver.session() as session:
-                        session.run(
-                            "MATCH (t:Task {id:$id}) SET t.tags = $tags RETURN t",
-                            id=task.get("id"),
-                            tags=merged,
-                        )
-                    typer.echo(f"Added suggested tags: {', '.join(suggested)}")
+                    updated = db.update_task(task.get("id"), tags=merged)
+                    if updated:
+                        typer.echo(f"Added suggested tags: {', '.join(suggested)}")
+                    else:
+                        typer.echo("Warning: failed to persist suggested tags")
                 except Exception:
                     typer.echo("Warning: failed to persist suggested tags")
             else:
